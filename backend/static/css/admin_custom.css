@@ -1,0 +1,20 @@
+:root {
+  --primary: #ff8800;
+  --secondary: #ffe3c4;
+}
+
+body, .brand-link {
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar {
+  background-color: var(--primary) !important;
+}
+
+.sidebar {
+  background-color: var(--secondary);
+}
+
+.brand-link .brand-text {
+  color: #fff !important;
+}

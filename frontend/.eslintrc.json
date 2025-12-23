@@ -1,0 +1,9 @@
+{
+  "extends": ["react-app"],
+  "rules": {
+    "react-hooks/exhaustive-deps": "off",
+    "no-unused-vars": "warn",
+    "import/no-anonymous-default-export": "off",
+    "jsx-a11y/anchor-is-valid": "off"
+  }
+}

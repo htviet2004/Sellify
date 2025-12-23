@@ -1,0 +1,58 @@
+# ------------------------
+# Python
+# ------------------------
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
+# ------------------------
+# Node / Frontend
+# ------------------------
+node_modules/
+dist/
+build/
+*.log
+
+# ------------------------
+# Project scripts & libraries
+# ------------------------
+script/
+lib/
+
+# ------------------------
+# IDE / Editor
+# ------------------------
+.vscode/
+.idea/
+*.swp
+
+pytest_suite/
+reports/
+staticfiles/
+.DS_Store
+conftest.py
+inspect_docs.py
+pytest.ini
+run_pytest.py
+test_report_utils.py
+
+# ------------------------
+# Database (SQLite)
+# ------------------------
+db.sqlite3
+backend/db.sqlite3
+
+# ------------------------
+# Frontend cache
+# ------------------------
+frontend/node_modules/.cache/
+.cache/
+
+# ------------------------
+# Env
+# ------------------------
+.env
+media

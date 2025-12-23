@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css');
+
+:root {
+  /* Colors - Black, White, Gray Theme */
+  --primary-black: #1a1a1a;
+  --secondary-black: #2d2d2d;
+  --dark-gray: #404040;
+  --medium-gray: #666666;
+  --light-gray: #999999;
+  --lighter-gray: #cccccc;
+  --lightest-gray: #e5e5e5;
+  --white: #ffffff;
+  --off-white: #f8f8f8;
+  --border-color: #d9d9d9;
+
+  /* New design system tokens */
+  --bg: #f3f6fb;
+  --bg-strong: #e6eeff;
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #edf2ff 45%, #fdf2f8 100%);
+  --surface: #ffffff;
+  --surface-muted: #f6f7fb;
+  --surface-hover: #eef2f7;
+  --border: #e4e7ec;
+  --text: #0f172a;
+  --text-muted: #6b7280;
+  --text-light: #94a3b8;
+  --text-dark: #0b1021;
+  --accent: #ff7a18;
+  --accent-strong: #f97316;
+  --accent-soft: #ffe4cc;
+  --accent-light: #ffd7ba;
+  --accent-gradient: linear-gradient(120deg, #0f172a, #1d2439);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --radius: 12px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 18px -12px rgba(15, 23, 42, 0.25);
+  --shadow-lg: 0 25px 60px -40px rgba(15, 23, 42, 0.35);
+  --shadow-xl: 0 45px 90px -45px rgba(15, 23, 42, 0.45);
+  --shadow: 0 15px 40px -25px rgba(15, 23, 42, 0.4);
+  
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--bg-gradient);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.fly-to-cart-clone {
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.2);
+  z-index: 9999;
+}
+
+.cart-btn--pulse {
+  animation: cartPulse 0.6s ease;
+}
+
+@keyframes cartPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--lightest-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--medium-gray);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dark-gray);
+}
+
+/* Selection */
+::selection {
+  background: var(--primary-black);
+  color: var(--white);
+}
+
+::-moz-selection {
+  background: var(--primary-black);
+  color: var(--white);
+}

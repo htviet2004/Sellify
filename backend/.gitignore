@@ -1,0 +1,31 @@
+# ------------------------
+# Python
+# ------------------------
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
+# ------------------------
+# Node / Frontend
+# ------------------------
+node_modules/
+dist/
+build/
+*.log
+
+# ------------------------
+# Project scripts & libraries
+# ------------------------
+script/
+lib/
+
+# ------------------------
+# IDE / Editor
+# ------------------------
+.vscode/
+.idea/
+*.swp
+tests.py
