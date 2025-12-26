@@ -3,6 +3,7 @@ from .views import (
     ProductViewSet,
     CategoryViewSet,
     ImageSearchView,
+    TextSearchView,
     WishlistViewSet,
     SavedItemViewSet,
     seller_products,
@@ -32,6 +33,9 @@ urlpatterns = [
 
     # Image search
     path('search/image/', ImageSearchView.as_view(), name='image-search'),
+    
+    # Text search with CLIP
+    path('search/text/', TextSearchView.as_view(), name='text-search'),
 
     # Wishlist URLs
     path('products/wishlist/', WishlistViewSet.as_view({'get': 'list', 'post': 'create'}), name='wishlist-list'),

@@ -394,14 +394,6 @@
   box-shadow: 0 25px 60px -45px rgba(15, 23, 42, 0.45);
 }
 
-.detail-section h3 {
-  margin: 0 0 18px;
-  font-size: 20px;
-  color: #0b1021;
-  border-bottom: 2px solid var(--pd-border);
-  padding-bottom: 12px;
-}
-
 .specs {
   display: grid;
   grid-template-columns: 220px 1fr;

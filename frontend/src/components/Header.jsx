@@ -29,6 +29,7 @@ export default function Header({
   const [authMode, setAuthMode] = useState('login');
   const [imgSearchLoading, setImgSearchLoading] = useState(false);
   const [imgSearchError, setImgSearchError] = useState(null);
+  const [useClipSearch, setUseClipSearch] = useState(false);
 
   const firstRender = useRef(true);
   const debounceRef = useRef(null);
@@ -37,7 +38,15 @@ export default function Header({
     e?.preventDefault();
     const q = (localQuery || '').trim();
     if (onQueryChange) onQueryChange(q);
-    if (q) navigate(`/search?q=${encodeURIComponent(q)}`);
+    if (q) {
+      if (useClipSearch) {
+        // Search using CLIP text embedding
+        navigate(`/search?mode=clip&q=${encodeURIComponent(q)}`);
+      } else {
+        // Normal search
+        navigate(`/search?q=${encodeURIComponent(q)}`);
+      }
+    }
   }
 
   useEffect(() => {
@@ -116,6 +125,14 @@ export default function Header({
             }}
             className="search-input"
           />
+          <label className="clip-toggle">
+            <input
+              type="checkbox"
+              checked={useClipSearch}
+              onChange={(e) => setUseClipSearch(e.target.checked)}
+            />
+            <span>CLIP</span>
+          </label>
           <button type="submit" className="search-btn">Tìm</button>
         </form>
 

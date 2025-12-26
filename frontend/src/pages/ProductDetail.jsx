@@ -11,6 +11,7 @@ import Icon from '../components/Icon';
 import usePageTitle from '../hooks/usePageTitle';
 import flyToCart from '../utils/flyToCart';
 import { extractVariantOptions } from '../utils/variantUtils';
+import SimilarProducts from '../components/SimilarProducts';
 
 export default function ProductDetail() {
     const { id } = useParams();
@@ -499,6 +500,14 @@ export default function ProductDetail() {
                             Chưa có đánh giá nào.
                         </div>
                     ) : null}
+                </section>
+
+                {/* Similar Products */}
+                <section className="detail-section">
+                    <SimilarProducts 
+                        productId={product.id} 
+                        productImage={product.image}
+                    />
                 </section>
             </div>
         </div>

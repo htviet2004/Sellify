@@ -190,8 +190,8 @@ const SellerProducts = () => {
   if (loading) {
     return (
       <>
-        <div className="seller-products-loading">
-          <div className="spinner"></div>
+        <div className="sp-loading">
+          <div className="sp-spinner"></div>
           <p>Đang tải sản phẩm...</p>
         </div>
         <Footer />
@@ -202,13 +202,13 @@ const SellerProducts = () => {
   return (
     <>
       
-      <div className="seller-products-page">
-        <div className="seller-products-container">
+      <div className="sp-page">
+        <div className="sp-container">
           
           {/* Page Header */}
-          <div className="page-header">
-            <div className="header-left">
-              <Link to="/seller/dashboard" className="back-btn">
+          <div className="sp-header">
+            <div className="sp-header-left">
+              <Link to="/seller/dashboard" className="sp-back-btn">
                 <FontAwesomeIcon icon={faArrowLeft} /> Dashboard
               </Link>
               <div>
@@ -216,37 +216,37 @@ const SellerProducts = () => {
                 <p>Quản lý tất cả sản phẩm của bạn</p>
               </div>
             </div>
-            <Link to="/seller/products/add" className="btn btn-primary" style={{ width: "230px" }}>
+            <Link to="/seller/products/add" className="sp-btn sp-btn-primary" style={{ width: "230px" }}>
               <FontAwesomeIcon icon={faPlus} /> Thêm sản phẩm mới
             </Link>
           </div>
 
           {/* Stats Cards */}
-          <div className="stats-row">
-            <div className="stat-card">
-              <div className="stat-icon"><FontAwesomeIcon icon={faChartBar} /></div>
-              <div className="stat-info">
+          <div className="sp-stats-row">
+            <div className="sp-stat-card">
+              <div className="sp-stat-icon"><FontAwesomeIcon icon={faChartBar} /></div>
+              <div className="sp-stat-info">
                 <h3>{stats.total}</h3>
                 <p>Tổng sản phẩm</p>
               </div>
             </div>
-            <div className="stat-card active">
-              <div className="stat-icon"><FontAwesomeIcon icon={faCheckCircle} /></div>
-              <div className="stat-info">
+            <div className="sp-stat-card sp-active">
+              <div className="sp-stat-icon"><FontAwesomeIcon icon={faCheckCircle} /></div>
+              <div className="sp-stat-info">
                 <h3>{stats.active}</h3>
                 <p>Đang hoạt động</p>
               </div>
             </div>
-            <div className="stat-card inactive">
-              <div className="stat-icon"><FontAwesomeIcon icon={faTimesCircle} /></div>
-              <div className="stat-info">
+            <div className="sp-stat-card sp-inactive">
+              <div className="sp-stat-icon"><FontAwesomeIcon icon={faTimesCircle} /></div>
+              <div className="sp-stat-info">
                 <h3>{stats.inactive}</h3>
                 <p>Đã ẩn</p>
               </div>
             </div>
-            <div className="stat-card warning">
-              <div className="stat-icon"><FontAwesomeIcon icon={faExclamationTriangle} /></div>
-              <div className="stat-info">
+            <div className="sp-stat-card sp-warning">
+              <div className="sp-stat-icon"><FontAwesomeIcon icon={faExclamationTriangle} /></div>
+              <div className="sp-stat-info">
                 <h3>{stats.outOfStock}</h3>
                 <p>Hết hàng</p>
               </div>
@@ -254,11 +254,11 @@ const SellerProducts = () => {
           </div>
 
           {/* Filters & Actions */}
-          <div className="filters-section">
-            <div className="filters-row">
+          <div className="sp-filters">
+            <div className="sp-filters-row">
               {/* Search */}
-              <div className="search-box">
-                <span className="search-icon"><FontAwesomeIcon icon={faSearch} /></span>
+              <div className="sp-search">
+                <span className="sp-search-icon"><FontAwesomeIcon icon={faSearch} /></span>
                 <input
                   type="text"
                   placeholder="Tìm kiếm sản phẩm..."
@@ -267,7 +267,7 @@ const SellerProducts = () => {
                 />
                 {searchTerm && (
                   <button 
-                    className="clear-search"
+                    className="sp-search-clear"
                     onClick={() => setSearchTerm('')}
                   >
                     ×
@@ -277,7 +277,7 @@ const SellerProducts = () => {
 
               {/* Status Filter */}
               <select 
-                className="filter-select"
+                className="sp-filter-select"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -288,7 +288,7 @@ const SellerProducts = () => {
 
               {/* Sort */}
               <select 
-                className="filter-select"
+                className="sp-filter-select"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
               >
@@ -300,16 +300,16 @@ const SellerProducts = () => {
               </select>
 
               {/* View Mode */}
-              <div className="view-mode-toggle">
+              <div className="sp-view-toggle">
                 <button 
-                  className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  className={`sp-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
                   onClick={() => setViewMode('grid')}
                   title="Xem dạng lưới"
                 >
                   <FontAwesomeIcon icon={faThLarge} />
                 </button>
                 <button 
-                  className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  className={`sp-view-btn ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => setViewMode('list')}
                   title="Xem dạng danh sách"
                 >
@@ -319,7 +319,7 @@ const SellerProducts = () => {
             </div>
 
             {/* Results Info */}
-            <div className="results-info">
+            <div className="sp-results">
               <p>
                 Hiển thị <strong>{indexOfFirstProduct + 1}-{Math.min(indexOfLastProduct, filteredProducts.length)}</strong> 
                 {' '}trong <strong>{filteredProducts.length}</strong> sản phẩm
@@ -329,7 +329,7 @@ const SellerProducts = () => {
 
           {/* Error Message */}
           {error && (
-            <div className="error-message">
+            <div className="sp-error">
               <FontAwesomeIcon icon={faTimesCircle} /> Lỗi: {error}
               <button onClick={fetchProducts}>Thử lại</button>
             </div>
@@ -337,8 +337,8 @@ const SellerProducts = () => {
 
           {/* Products Grid/List */}
           {filteredProducts.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon"><FontAwesomeIcon icon={faBox} size="4x" /></div>
+            <div className="sp-empty">
+              <div className="sp-empty-icon"><FontAwesomeIcon icon={faBox} size="4x" /></div>
               <h2>Không tìm thấy sản phẩm</h2>
               <p>
                 {searchTerm || statusFilter !== 'all' 
@@ -346,93 +346,93 @@ const SellerProducts = () => {
                   : 'Bạn chưa có sản phẩm nào'}
               </p>
               {!searchTerm && statusFilter === 'all' && (
-                <Link to="/seller/products/add" className="btn btn-primary">
+                <Link to="/seller/products/add" className="sp-btn sp-btn-primary">
                   <FontAwesomeIcon icon={faPlus} /> Thêm sản phẩm đầu tiên
                 </Link>
               )}
             </div>
           ) : (
             <>
-              <div className={`products-container ${viewMode}`}>
+              <div className={`sp-products ${viewMode}`}>
                 {currentProducts.map((product) => (
-                  <div key={product.id} className="product-card">
+                  <div key={product.id} className="sp-card">
                     
                     {/* Product Image */}
-                    <div className="product-image-wrapper">
+                    <div className="sp-card-image">
                       <img 
                         src={product.image || '/placeholder.png'} 
                         alt={product.name}
-                        className="product-image"
+                        className="sp-card-img"
                       />
-                      <div className="product-badges">
+                      <div className="sp-badges">
                         {product.stock === 0 && (
-                          <span className="badge badge-danger">Hết hàng</span>
+                          <span className="sp-badge sp-badge-danger">Hết hàng</span>
                         )}
                         {!product.is_active && (
-                          <span className="badge badge-secondary">Đã ẩn</span>
+                          <span className="sp-badge sp-badge-secondary">Đã ẩn</span>
                         )}
                         {product.is_active && product.stock > 0 && (
-                          <span className="badge badge-success">Đang bán</span>
+                          <span className="sp-badge sp-badge-success">Đang bán</span>
                         )}
                       </div>
                     </div>
 
                     {/* Product Info */}
-                    <div className="product-info">
-                      <h3 className="product-name">{product.name}</h3>
+                    <div className="sp-card-info">
+                      <h3 className="sp-card-title">{product.name}</h3>
                       
-                      <p className="product-description">
+                      <p className="sp-card-desc">
                         {product.description?.substring(0, 100)}
                         {product.description?.length > 100 ? '...' : ''}
                       </p>
 
-                      <div className="product-meta">
-                        <div className="meta-item">
-                          <span className="label">Giá:</span>
-                          <span className="value price">{formatPrice(product.price || 0)}</span>
+                      <div className="sp-card-meta">
+                        <div className="sp-meta-item">
+                          <span className="sp-meta-label">Giá:</span>
+                          <span className="sp-meta-value sp-price">{formatPrice(product.price || 0)}</span>
                         </div>
-                        <div className="meta-item">
-                          <span className="label">Kho:</span>
-                          <span className={`value stock ${product.stock === 0 ? 'out-of-stock' : ''}`}>
+                        <div className="sp-meta-item">
+                          <span className="sp-meta-label">Kho:</span>
+                          <span className={`sp-meta-value sp-stock ${product.stock === 0 ? 'sp-out' : ''}`}>
                             {product.stock}
                           </span>
                         </div>
-                        <div className="meta-item">
-                          <span className="label">Danh mục:</span>
-                          <span className="value">{product.category_name || 'N/A'}</span>
+                        <div className="sp-meta-item">
+                          <span className="sp-meta-label">Danh mục:</span>
+                          <span className="sp-meta-value">{product.category_name || 'N/A'}</span>
                         </div>
-                        <div className="meta-item">
-                          <span className="label">Tạo lúc:</span>
-                          <span className="value">{new Date(product.created_at).toLocaleDateString('vi-VN')}</span>
+                        <div className="sp-meta-item">
+                          <span className="sp-meta-label">Tạo lúc:</span>
+                          <span className="sp-meta-value">{new Date(product.created_at).toLocaleDateString('vi-VN')}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Product Actions */}
-                    <div className="product-actions">
+                    <div className="sp-actions">
                       <Link 
                         to={`/products/${product.id}`}
-                        className="action-btn view"
+                        className="sp-action-btn sp-view"
                         title="Xem chi tiết"
                       >
                         <FontAwesomeIcon icon={faEye} /> Xem
                       </Link>
                       <Link 
                         to={`/seller/products/edit/${product.id}`}
-                        className="action-btn edit"
+                        className="sp-action-btn sp-edit"
                         title="Chỉnh sửa"
                       >
                         <FontAwesomeIcon icon={faEdit} /> Sửa
                       </Link>
                       <button 
-                        className={`action-btn toggle ${product.is_active ? 'hide' : 'show'}`}
+                        className={`sp-action-btn sp-toggle ${product.is_active ? 'hide' : 'show'}`}
                         onClick={() => handleToggleStatus(product.id, product.is_active)}
                         title={product.is_active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
                       >
                         {product.is_active ? <><FontAwesomeIcon icon={faBan} /> Ẩn</> : <><FontAwesomeIcon icon={faCheckCircle} /> Hiện</>}
                       </button>
                       <button 
-                        className="action-btn delete"
+                        className="sp-action-btn sp-delete"
                         onClick={() => handleDeleteProduct(product.id, product.name)}
                         title="Xóa sản phẩm"
                       >
@@ -446,16 +446,16 @@ const SellerProducts = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="pagination">
+                <div className="sp-pagination">
                   <button 
-                    className="page-btn"
+                    className="sp-page-btn"
                     onClick={() => paginate(currentPage - 1)}
                     disabled={currentPage === 1}
                   >
                     ← Trước
                   </button>
                   
-                  <div className="page-numbers">
+                  <div className="sp-page-numbers">
                     {[...Array(totalPages)].map((_, index) => {
                       const pageNumber = index + 1;
                       // Show first, last, current, and adjacent pages
@@ -467,7 +467,7 @@ const SellerProducts = () => {
                         return (
                           <button
                             key={pageNumber}
-                            className={`page-number ${currentPage === pageNumber ? 'active' : ''}`}
+                            className={`sp-page-number ${currentPage === pageNumber ? 'active' : ''}`}
                             onClick={() => paginate(pageNumber)}
                           >
                             {pageNumber}
@@ -477,14 +477,14 @@ const SellerProducts = () => {
                         pageNumber === currentPage - 2 ||
                         pageNumber === currentPage + 2
                       ) {
-                        return <span key={pageNumber} className="page-dots">...</span>;
+                        return <span key={pageNumber} className="sp-page-dots">...</span>;
                       }
                       return null;
                     })}
                   </div>
 
                   <button 
-                    className="page-btn"
+                    className="sp-page-btn"
                     onClick={() => paginate(currentPage + 1)}
                     disabled={currentPage === totalPages}
                   >

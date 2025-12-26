@@ -102,7 +102,7 @@ export default function Home() {
                     Những sản phẩm được yêu thích nhất tại Sellify
                   </p>
                 </div>
-                <div className="products-grid">
+                <div className="product-grid">
                   {products.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}

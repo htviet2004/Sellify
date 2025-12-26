@@ -50,6 +50,9 @@ class ProductSerializer(serializers.ModelSerializer):
             if request is not None:
                 return request.build_absolute_uri(url)
             return url
+        # Fallback: use external image_url if stored
+        if obj.image_url:
+            return obj.image_url
         return None
 
     def get_seller_name(self, obj):

@@ -5,18 +5,42 @@ Usage:
 
 Behavior:
     - Walk through active products (optionally only missing embeddings)
-    - Load image file if available; else skip
+    - Load local image if available; otherwise try downloading from image_url
     - Compute CLIP embedding and save to product.image_embedding
     - Prints progress and totals
 """
 from pathlib import Path
+from io import BytesIO
 
+import requests
 import torch
 from django.db import transaction
 from PIL import Image
 
 from clip_service import get_image_embedding
 from products.models import Product
+
+
+def _open_image(product: Product):
+    """Open PIL image from local file if exists else from image_url. Return Image or None."""
+    # Local file first
+    if product.image and product.image.name:
+        img_path = Path(product.image.path)
+        if img_path.exists():
+            return Image.open(img_path).convert("RGB")
+
+    # Fallback: download from image_url
+    url = (product.image_url or "").strip()
+    if not url:
+        return None
+
+    try:
+        resp = requests.get(url, timeout=8)
+        if resp.status_code != 200:
+            return None
+        return Image.open(BytesIO(resp.content)).convert("RGB")
+    except Exception:
+        return None
 
 
 def run(only_missing: bool = True, batch_size: int = 100):
@@ -47,24 +71,16 @@ def run(only_missing: bool = True, batch_size: int = 100):
 
     for p in qs.iterator():
         processed += 1
-        img_path = None
         try:
-            if p.image and p.image.name:
-                img_path = Path(p.image.path)
-            else:
-                # Nếu không có file local thì bỏ qua (không xử lý image_url ở đây)
+            img = _open_image(p)
+            if img is None:
                 skipped += 1
                 continue
 
-            if not img_path.exists():
-                skipped += 1
-                continue
-
-            with Image.open(img_path).convert("RGB") as im:
-                emb = get_image_embedding(im)
-                p.image_embedding = emb
-                batch.append(p)
-                updated += 1
+            emb = get_image_embedding(img)
+            p.image_embedding = emb
+            batch.append(p)
+            updated += 1
 
             if len(batch) >= batch_size:
                 save_batch(batch)
@@ -83,3 +99,6 @@ def run(only_missing: bool = True, batch_size: int = 100):
 
     print("✅ Hoàn tất backfill")
     print(f"📊 Processed: {processed}, Updated: {updated}, Skipped: {skipped}, Errors: {errors}")
+
+# Auto-run when loaded via Get-Content | python manage.py shell
+run(only_missing=False, batch_size=100)

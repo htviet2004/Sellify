@@ -11,7 +11,9 @@ export default function FiltersSidebar({
   sortBy,
   onSortChange = () => {},
   onClearFilters = () => {},
-  showCategoryLinks = false
+  showCategoryLinks = false,
+  selectedColor = '',
+  onColorChange = () => {}
 }) {
   // normalize incoming categories to objects { id, name, slug }
   const normalized = (categories || []).map((c) => {
@@ -93,6 +95,40 @@ export default function FiltersSidebar({
             value={priceRange.max ?? ''}
             onChange={(e) => onPriceRangeChange && onPriceRangeChange(prev => ({ ...prev, max: e.target.value }))}
           />
+        </div>
+      </div>
+
+      <div className="filter-section">
+        <h4>Màu sắc</h4>
+        <div className="color-filter">
+          {[
+            { name: 'Đỏ', value: 'red', hex: '#EF4444' },
+            { name: 'Cam', value: 'orange', hex: '#F97316' },
+            { name: 'Vàng', value: 'yellow', hex: '#EAB308' },
+            { name: 'Xanh lá', value: 'green', hex: '#22C55E' },
+            { name: 'Xanh dương', value: 'blue', hex: '#3B82F6' },
+            { name: 'Tím', value: 'purple', hex: '#A855F7' },
+            { name: 'Hồng', value: 'pink', hex: '#EC4899' },
+            { name: 'Nâu', value: 'brown', hex: '#92400E' },
+            { name: 'Đen', value: 'black', hex: '#000000' },
+            { name: 'Trắng', value: 'white', hex: '#FFFFFF' },
+            { name: 'Xám', value: 'gray', hex: '#6B7280' },
+            { name: 'Be', value: 'beige', hex: '#D4A574' }
+          ].map(color => (
+            <div 
+              key={color.value}
+              className={`color-item ${selectedColor === color.value ? 'active' : ''}`}
+              onClick={() => onColorChange(selectedColor === color.value ? '' : color.value)}
+            >
+              <div
+                className="color-swatch"
+                style={{ backgroundColor: color.hex }}
+                title={color.name}
+                aria-label={`Lọc theo màu ${color.name}`}
+              />
+              <span className="color-label">{color.name}</span>
+            </div>
+          ))}
         </div>
       </div>
 

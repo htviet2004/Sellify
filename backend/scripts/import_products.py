@@ -1,184 +1,185 @@
+"""Import products from curated CSV (selected_30_per_category.csv).
+
+CSV columns expected (examples):
+id,keyword_source,name,description,price,stock,image,image_url,product_link,category,color_options,size_options
+
+Paths:
+- Default CSV: shopee crawl/Dataset/products_selected/selected_30_per_category.csv
+- Local image paths inside CSV are joined relative to that dataset root.
+
+Usage (safe):
+  Set-Location -Path "C:\VIET\PBL6\main\backend"; \
+  .\.venv\Scripts\python.exe -c "import os, django; os.environ.setdefault('DJANGO_SETTINGS_MODULE','backend.settings'); django.setup(); from scripts.import_products import run; run()"
+
+Notes:
+- Ensures seller users exist (seller1/2/3) or creates them with dummy password.
+- Does not delete existing data.
+- You can pass a custom CSV path: run(csv_path="/path/to/file.csv")
+"""
+
 import csv
-import random
 from pathlib import Path
-from products.models import Product, Category
+from typing import Iterable, List
+
 from django.contrib.auth import get_user_model
 from django.core.files import File
+from products.models import Category, Product
 
 User = get_user_model()
 
-def run():
-    base_dir = Path(__file__).resolve().parent
-    products_csv = base_dir / 'styles.csv'
-    images_csv = base_dir / 'images.csv'
-    image_dir = Path(r"C:\Users\HOan\Downloads\fashion-dataset\images")
+
+def _ensure_sellers(usernames: Iterable[str]) -> List[User]:
+    sellers = []
+    for uname in usernames:
+        user, _created = User.objects.get_or_create(
+            username=uname,
+            defaults={"email": f"{uname}@example.com", "password": "pbkdf2_sha256$notset"},
+        )
+        sellers.append(user)
+    return sellers
+
+
+def _parse_list_field(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    # Split by comma and strip; keep single value as list
+    parts = [p.strip() for p in raw.split(',') if p.strip()]
+    return parts if parts else ([raw.strip()] if raw.strip() else [])
+
+
+def _resolve_image_path(image_field: str, dataset_root: Path, base_dir: Path) -> Path | None:
+    """Resolve image path from CSV to an existing local file.
+
+    - Absolute path: use directly.
+    - Starts with "Dataset/": join with dataset_root (which already points to the folder containing Dataset).
+    - Otherwise: join with base_dir (Dataset/).
+    """
+    if not image_field:
+        return None
+
+    p = Path(image_field)
+    if p.is_absolute():
+        candidate = p
+    elif p.parts and p.parts[0].lower() == "dataset":
+        candidate = dataset_root / p  # keep the leading Dataset segment
+    else:
+        candidate = base_dir / p
+
+    candidate = candidate.resolve()
+    return candidate if candidate.exists() else None
+
+
+def run(csv_path: str | None = None, limit: int | None = None):
+    # Resolve CSV path
+    dataset_root = Path(r"C:\VIET\PBL6\shopee crawl")
+    default_csv = dataset_root / "Dataset" / "products_selected" / "selected_30_per_category.csv"
+    products_csv = Path(csv_path) if csv_path else default_csv
 
     if not products_csv.exists():
         print(f"❌ Không tìm thấy file: {products_csv}")
         return
 
-    def normalize_filename(name: str | None) -> str | None:
-        if not name:
-            return None
-        return name.strip().lower()
-
-    def find_local_image(row_id: str | None) -> Path | None:
-        if not row_id:
-            return None
-        for ext in ('.jpg', '.jpeg', '.png', '.webp'):
-            p = image_dir / f"{row_id}{ext}"
-            if p.exists():
-                return p
-        return None
-
-    # Load image map
-    image_map: dict[str, str] = {}
-    if images_csv.exists():
-        with images_csv.open(newline='', encoding='utf-8') as imgfile:
-            reader = csv.DictReader(imgfile)
-            for row in reader:
-                fn = (
-                    row.get('filename')
-                    or row.get('file_name')
-                    or row.get('image')
-                    or row.get('image_filename')
-                )
-                url = row.get('link') or row.get('url') or row.get('image_url')
-                fn_n = normalize_filename(fn)
-                if fn_n and url:
-                    image_map[fn_n] = url.strip()
-        print(f"✅ Đã load {len(image_map)} ảnh từ images.csv")
-    else:
-        print(f"⚠️ Không tìm thấy images.csv tại: {images_csv}. Sẽ import không có ảnh URL.")
-
-    if not image_dir.exists():
-        print(f"⚠️ Thư mục ảnh local chưa tồn tại: {image_dir}")
-
-    # Seller random
-    seller_usernames = ['seller1', 'seller2', 'seller3']
-    sellers = list(User.objects.filter(username__in=seller_usernames))
+    # Prepare sellers
+    seller_usernames = ["seller1", "seller2", "seller3"]
+    sellers = _ensure_sellers(seller_usernames)
     if not sellers:
-        print("❌ Không tìm thấy seller nào trong database! Tạo seller1, seller2, seller3 trước.")
+        print("❌ Không có seller khả dụng")
         return
-    print(f"✅ Seller sử dụng sẽ random trong: {', '.join([u.username for u in sellers])}")
+    print(f"✅ Seller dùng để gán: {', '.join(u.username for u in sellers)}")
 
     # Cache categories
-    category_cache = {}
-
-    remote_products: list[Product] = []
-    missing_any_image = 0
-    have_local = 0
-    have_remote = 0
+    category_cache: dict[str, Category] = {}
 
     processed = 0
-    MAX_ROWS = 20
+    created = 0
+    local_images = 0
+    remote_images = 0
+    missing_images = 0
 
-    COLORS = [
-        'Red', 'Blue', 'Green', 'Black', 'White', 'Yellow', 
-        'Pink', 'Gray', 'Purple', 'Orange', 'Brown', 'Beige', 
-        'Turquoise', 'Navy', 'Olive'
-    ]
-    SIZES = ['S', 'M', 'L', 'XL', 'XXL']
+    # Base directory for relative image paths in CSV
+    base_dir = products_csv.parent.parent  # points to Dataset/
 
     print(f"🔄 Đang đọc file {products_csv}...")
-
-    with products_csv.open(newline='', encoding='utf-8') as csvfile:
+    with products_csv.open(newline="", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
-        all_rows = list(reader)
-        sample_rows = random.sample(all_rows, k=min(MAX_ROWS, len(all_rows)))  # random 2000 dòng
+        rows = list(reader)
+        if limit is not None:
+            rows = rows[:limit]
 
-        for row in sample_rows:
-            name = row.get('productDisplayName') or row.get('name') or 'Unknown Product'
-            desc_parts = []
-            for key in ['gender', 'usage', 'articleType', 'baseColour', 'season', 'year']:
-                val = (row.get(key) or '').strip()
-                if val:
-                    desc_parts.append(val)
-            description = ' - '.join(desc_parts) if desc_parts else 'No description'
+        for row in rows:
+            processed += 1
+            name = row.get("name") or "Unknown Product"
+            description = row.get("description") or ""
+            price_raw = row.get("price") or "0"
+            stock_raw = row.get("stock") or "0"
+            category_name = row.get("category") or "Uncategorized"
 
-            category_name = row.get('subCategory') or row.get('masterCategory') or 'Uncategorized'
-            if category_name not in category_cache:
-                category_obj, created = Category.objects.get_or_create(
-                    name=category_name,
-                    defaults={'is_active': True}
-                )
-                category_cache[category_name] = category_obj
-                if created:
-                    print(f"  ➕ Tạo category mới: {category_name}")
-            else:
-                category_obj = category_cache[category_name]
+            # Category
+            cat = category_cache.get(category_name)
+            if not cat:
+                cat, _ = Category.objects.get_or_create(name=category_name, defaults={"is_active": True})
+                category_cache[category_name] = cat
 
-            row_id = row.get('id') or row.get('productId') or row.get('styleid') or row.get('product_id')
-            local_path = find_local_image(str(row_id) if row_id else None)
+            # Seller round-robin
+            seller = sellers[(processed - 1) % len(sellers)]
 
-            image_url = ""
-            if not local_path:
-                filename = row.get('filename') or row.get('file_name')
-                if not filename and row_id:
-                    filename = f"{row_id}.jpg"
-                fn_norm = normalize_filename(filename)
-                if fn_norm and image_map:
-                    image_url = image_map.get(fn_norm, "")
-                    if not image_url and '.' in fn_norm:
-                        image_url = image_map.get(fn_norm.rsplit('.', 1)[0], "")
+            # Image handling
+            image_field = row.get("image") or ""
+            image_url = (row.get("image_url") or "").strip()
+            local_path = _resolve_image_path(image_field, dataset_root, base_dir)
 
-            # Random giá từ 100k → 5 triệu, làm tròn 1000
-            price = random.randint(100_000, 5_000_000)
-            price = (price // 1000) * 1000
+            color_opts = _parse_list_field(row.get("color_options")) or []
+            size_opts = _parse_list_field(row.get("size_options")) or []
 
-            stock = random.randint(1, 50)
-            rating = round(random.uniform(1.0, 5.0), 1)
-            sold_count = random.randint(0, 500)
-            seller = random.choice(sellers)
+            try:
+                price = int(float(price_raw))
+            except ValueError:
+                price = 0
+            if price <= 0:
+                price = 1000  # tối thiểu 1k để pass validation
 
-            variant_colors = random.sample(COLORS, k=random.randint(1, min(len(COLORS), 6)))
-            variant_sizes = random.sample(SIZES, k=random.randint(1, min(len(SIZES), 5)))
-            variants_str = f"Colors: {', '.join(variant_colors)} | Sizes: {', '.join(variant_sizes)}"
+            try:
+                stock = int(float(stock_raw))
+            except ValueError:
+                stock = 0
 
-            desc_with_stats = f"{description}\nRating: {rating}⭐ | Sold: {sold_count}\n{variants_str}"
-
-            product_data = {
-                'seller': seller,
-                'category': category_obj,
-                'name': name,
-                'description': desc_with_stats,
-                'price': price,
-                'stock': stock,
-                'is_active': True,
-                'color_options': variant_colors,
-                'size_options': variant_sizes,
-            }
+            product = Product(
+                seller=seller,
+                category=cat,
+                name=name,
+                description=description,
+                price=price,
+                stock=max(stock, 0),
+                is_active=True,
+                color_options=color_opts,
+                size_options=size_opts,
+                image_url=image_url if not local_path else "",
+            )
 
             if local_path:
-                product = Product(**product_data, image_url="")
                 product.save()
-                with local_path.open('rb') as f:
+                with local_path.open("rb") as f:
                     product.image.save(local_path.name, File(f), save=True)
-                have_local += 1
-                processed += 1
+                local_images += 1
             else:
-                if not image_url:
-                    missing_any_image += 1
-                product = Product(**product_data, image='', image_url=image_url)
-                remote_products.append(product)
-                have_remote += 1
-                processed += 1
+                product.save()
+                if image_url:
+                    remote_images += 1
+                else:
+                    missing_images += 1
 
-            if processed % 100 == 0:
-                print(f"  📦 Đã xử lý {processed}/{MAX_ROWS} sản phẩm...")
+            created += 1
 
-    if remote_products:
-        try:
-            print(f"\n💾 Đang lưu {len(remote_products)} sản phẩm dùng URL ảnh...")
-            Product.objects.bulk_create(remote_products, batch_size=500)
-        except Exception as e:
-            print(f"❌ Lỗi bulk_create: {e}")
-            import traceback
-            traceback.print_exc()
+            if processed % 50 == 0:
+                print(f"  📦 Đã xử lý {processed} sản phẩm...")
 
     print("✅ Import hoàn tất!")
-    print(f"📊 Tổng xử lý: {processed}/{MAX_ROWS}")
-    print(f"🖼️  Ảnh local: {have_local}")
-    print(f"🌐  Ảnh URL: {have_remote - missing_any_image}")
-    print(f"❌ Thiếu ảnh: {missing_any_image}")
+    print(f"📊 Processed: {processed}, Created: {created}")
+    print(f"🖼️  Ảnh local: {local_images}")
+    print(f"🌐  Ảnh URL: {remote_images}")
+    print(f"❌ Thiếu ảnh: {missing_images}")
     print(f"📂 Categories: {len(category_cache)}")
+
+
+if __name__ == "__main__":
+    run()

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../data/constants';
 import ProductGrid from '../components/ProductGrid';
 import ImageSearchUpload from '../components/ImageSearchUpload';
+import FiltersSidebar from '../components/FiltersSidebar';
 import Loading from '../components/Loading';
 import '../assets/CategoryPage.css';
 import Icon from '../components/Icon';
@@ -17,16 +18,19 @@ export default function CategoryPage() {
   // Data
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [clipColorResults, setClipColorResults] = useState(null);
 
   // UI/Filter state
   const [query, setQuery] = useState('');
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [sortBy, setSortBy] = useState('relevance');
+  const [selectedColor, setSelectedColor] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [imageResults, setImageResults] = useState(null); // danh sách trả về từ search ảnh
+  const [colorSearchLoading, setColorSearchLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +76,54 @@ export default function CategoryPage() {
   const pageTitle = activeCategoryObj?.name || slugFromUrl || 'Danh mục sản phẩm';
   usePageTitle(pageTitle);
 
+  // CLIP search for color filter
+  useEffect(() => {
+    if (!selectedColor) {
+      setClipColorResults(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function searchByColor() {
+      setColorSearchLoading(true);
+      try {
+        const colorNames = {
+          'red': 'red',
+          'orange': 'orange',
+          'yellow': 'yellow',
+          'green': 'green',
+          'blue': 'blue',
+          'purple': 'purple',
+          'pink': 'pink',
+          'brown': 'brown',
+          'black': 'black',
+          'white': 'white',
+          'gray': 'gray',
+          'beige': 'beige'
+        };
+        
+        const colorTerm = colorNames[selectedColor] || selectedColor;
+        const categoryName = activeCategoryObj?.name || '';
+        const searchQuery = categoryName ? `${colorTerm} ${categoryName}` : colorTerm;
+        
+        const res = await fetch(`${API_BASE}/api/search/text/?q=${encodeURIComponent(searchQuery)}&k=100`);
+        const data = await res.json();
+        
+        if (!cancelled && data.results) {
+          setClipColorResults(data.results);
+        }
+      } catch (err) {
+        console.error('CLIP color search error:', err);
+        if (!cancelled) setClipColorResults(null);
+      } finally {
+        if (!cancelled) setColorSearchLoading(false);
+      }
+    }
+
+    searchByColor();
+    return () => { cancelled = true; };
+  }, [selectedColor, activeCategoryObj]);
+
   // Product matching
   function productMatchesCategory(prod, identifier) {
     if (!identifier) return true;
@@ -94,6 +146,59 @@ export default function CategoryPage() {
 
   // Filtered products
   const filteredProducts = useMemo(() => {
+    // If color filter is active and CLIP results are ready, use those
+    if (selectedColor && clipColorResults) {
+      const clipProductIds = new Set(clipColorResults.map(p => p.id));
+      let list = products.filter(p => clipProductIds.has(p.id));
+      
+      // Apply other filters
+      const activeIdentifier = activeCategoryObj 
+        ? (activeCategoryObj.slug ?? activeCategoryObj.name ?? String(activeCategoryObj.id))
+        : (slugFromUrl || '');
+      
+      if (activeIdentifier) {
+        list = list.filter(p => productMatchesCategory(p, activeIdentifier));
+      }
+      
+      const q = (query || '').trim().toLowerCase();
+      if (q) {
+        list = list.filter(product => {
+          const name = String(product.name ?? '').toLowerCase();
+          const desc = String(product.description ?? '').toLowerCase();
+          return name.includes(q) || desc.includes(q);
+        });
+      }
+      
+      const price = (p) => Number(p.price ?? 0);
+      if (priceRange.min) {
+        list = list.filter(p => price(p) >= Number(priceRange.min));
+      }
+      if (priceRange.max) {
+        list = list.filter(p => price(p) <= Number(priceRange.max));
+      }
+      
+      // Sort
+      switch (sortBy) {
+        case 'price-low':
+          list.sort((a, b) => price(a) - price(b));
+          break;
+        case 'price-high':
+          list.sort((a, b) => price(b) - price(a));
+          break;
+        case 'name':
+          list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+          break;
+        case 'newest':
+          list.sort((a, b) => (b.id || 0) - (a.id || 0));
+          break;
+        default:
+          break;
+      }
+      
+      return list;
+    }
+    
+    // Original filtering logic (without CLIP color search)
     const activeIdentifier = activeCategoryObj 
       ? (activeCategoryObj.slug ?? activeCategoryObj.name ?? String(activeCategoryObj.id))
       : (slugFromUrl || '');
@@ -111,6 +216,9 @@ export default function CategoryPage() {
       const price = Number(product.price ?? 0);
       if (priceRange.min && price < Number(priceRange.min)) return false;
       if (priceRange.max && price > Number(priceRange.max)) return false;
+      
+      // Color filter only applies when NOT using CLIP (CLIP handles it above)
+      // This section is for fallback text-based color matching
       
       return true;
     });
@@ -133,7 +241,7 @@ export default function CategoryPage() {
     }
 
     return list;
-  }, [products, activeCategoryObj, slugFromUrl, query, priceRange, sortBy]);
+  }, [products, activeCategoryObj, slugFromUrl, query, priceRange, sortBy, selectedColor, clipColorResults]);
 
   // Header count dùng effectiveFiltered thay vì filteredProducts
   const effectiveFiltered = useMemo(() => {
@@ -173,6 +281,8 @@ export default function CategoryPage() {
     setQuery('');
     setPriceRange({ min: '', max: '' });
     setSortBy('relevance');
+    setSelectedColor('');
+    setClipColorResults(null);
     setCurrentPage(1);
     setImageResults(null); // thoát chế độ tìm bằng ảnh
   };
@@ -227,96 +337,27 @@ export default function CategoryPage() {
 
         <div className="category-content">
           {/* Sidebar Filters */}
-          <aside className={`filters-sidebar ${showFilters ? 'mobile-open' : ''}`}>
-            <div className="filters-header">
-              <h3>Bộ lọc</h3>
-              <button 
-                className="filters-close" 
-                onClick={() => setShowFilters(false)}
-                aria-label="Đóng bộ lọc"
-              >
-                <Icon name="xmark" size={14} />
-              </button>
-            </div>
-
-            {/* Search */}
-            <div className="filter-section">
-              <label className="filter-label">Tìm kiếm</label>
-              <input
-                type="text"
-                className="filter-input"
-                placeholder="Tìm sản phẩm..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Categories */}
-            <div className="filter-section">
-              <label className="filter-label">Danh mục</label>
-              <div className="category-list">
-                <button
-                  className={`category-item ${!slugFromUrl ? 'active' : ''}`}
-                  onClick={() => handleCategoryChange('')}
-                >
-                  Tất cả
-                </button>
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    className={`category-item ${
-                      activeCategoryObj?.id === cat.id ? 'active' : ''
-                    }`}
-                    onClick={() => handleCategoryChange(cat.slug || cat.name)}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Price Range */}
-            <div className="filter-section">
-              <label className="filter-label">Khoảng giá</label>
-              <div className="price-range-inputs">
-                <input
-                  type="number"
-                  className="filter-input"
-                  placeholder="Từ"
-                  value={priceRange.min}
-                  onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
-                />
-                <span className="price-separator">-</span>
-                <input
-                  type="number"
-                  className="filter-input"
-                  placeholder="Đến"
-                  value={priceRange.max}
-                  onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            {/* Sort */}
-            <div className="filter-section">
-              <label className="filter-label">Sắp xếp</label>
-              <select
-                className="filter-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="relevance">Liên quan</option>
-                <option value="price-low">Giá: Thấp đến cao</option>
-                <option value="price-high">Giá: Cao đến thấp</option>
-                <option value="name">Tên: A-Z</option>
-                <option value="newest">Mới nhất</option>
-              </select>
-            </div>
-
-            {/* Clear Filters */}
-            <button className="btn-clear-filters" onClick={handleClearFilters}>
-              Xóa bộ lọc
+          <aside className={`filters-sidebar-wrapper ${showFilters ? 'mobile-open' : ''}`}>
+            <button 
+              className="filters-close" 
+              onClick={() => setShowFilters(false)}
+              aria-label="Đóng bộ lọc"
+            >
+              <Icon name="xmark" size={14} />
             </button>
+            <FiltersSidebar
+              categories={[{ id: null, name: 'Tất cả', slug: '' }, ...categories]}
+              selectedCategory={activeCategoryObj?.slug || activeCategoryObj?.name || ''}
+              onCategoryChange={handleCategoryChange}
+              priceRange={priceRange}
+              onPriceRangeChange={setPriceRange}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              selectedColor={selectedColor}
+              onColorChange={setSelectedColor}
+              onClearFilters={handleClearFilters}
+              showCategoryLinks={false}
+            />
           </aside>
 
           {/* Products Section */}
@@ -331,27 +372,11 @@ export default function CategoryPage() {
                 <span>Bộ lọc</span>
               </button>
 
-              <ImageSearchUpload
-                k={48}
-                onStart={() => setLoading(true)}
-                onFinish={() => setLoading(false)}
-                onResults={(mapped) => {
-                  setImageResults(mapped);
-                  setCurrentPage(1);
-                  setShowFilters(false);
-                }}
-                onError={(msg) => setError(msg)}
-              />
-
-              {imageResults && (
-                <button className="btn" style={{ marginLeft: 8 }} onClick={() => setImageResults(null)}>
-                  Hủy kết quả ảnh
-                </button>
-              )}
-
               <div className="results-info">
                 Hiển thị {paginatedProducts.length} / {effectiveFiltered.length} sản phẩm
                 {imageResults && <span style={{ marginLeft: 8, color: '#888' }}>(kết quả từ ảnh)</span>}
+                {colorSearchLoading && <span style={{ marginLeft: 8, color: '#6366f1' }}>🤖 Đang tìm bằng CLIP...</span>}
+                {selectedColor && clipColorResults && !colorSearchLoading && <span style={{ marginLeft: 8, color: '#6366f1' }}>🤖 CLIP</span>}
               </div>
             </div>
 

@@ -13,9 +13,11 @@ const Icon = ({
   className = '',
   style,
   title,
+  spin = false,
   ...rest
 }) => {
   const prefix = prefixMap[variant] || prefixMap.solid;
+  const spinClass = spin ? 'fa-spin' : '';
   const mergedStyle = {
     fontSize: size,
     lineHeight: 1,
@@ -29,7 +31,7 @@ const Icon = ({
 
   return (
     <i
-      className={`${prefix} fa-${name} ${className}`.trim()}
+      className={`${prefix} fa-${name} ${spinClass} ${className}`.trim()}
       style={mergedStyle}
       title={title}
       {...ariaProps}

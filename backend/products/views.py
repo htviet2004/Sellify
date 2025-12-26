@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from django.db.models import Count, Q
 from PIL import Image
+import torch
 
 from .serializers import (
     ProductCreateSerializer,
@@ -16,7 +17,7 @@ from .serializers import (
     SavedItemSerializer,
 )
 from .models import Product, Category, WishlistItem, SavedItem
-from resnet_service import classify_image
+from clip_service import get_image_embedding, get_text_embedding
 
 
 class BuyerOnlyPermission(permissions.BasePermission):
@@ -120,8 +121,8 @@ class ImageSearchView(APIView):
     
     POST /api/search/image/
     - Nhận file ảnh
-    - Classify ảnh thành 1 trong 18 class
-    - Trả về các sản phẩm trong category tương ứng
+    - Tính embedding CLIP cho ảnh
+    - Trả về các sản phẩm có embedding gần nhất
     """
     parser_classes = [MultiPartParser]
     permission_classes = [AllowAny]
@@ -142,70 +143,226 @@ class ImageSearchView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Optional ROI support (either as JSON string in 'roi' or separate fields)
+        # Expected ROI format (normalized 0..1 or absolute pixels):
+        # - roi: JSON string or dict {x, y, w, h} (x,y = top-left)
+        # - roi_x, roi_y, roi_w, roi_h: individual values
         try:
-            # Phân loại ảnh
-            predicted_class = classify_image(img)
-            
-            # Tìm sản phẩm có category tương ứng
-            # Chuyển đổi class name thành category name (ví dụ: 'backpack' -> 'Backpack')
-            category_name = predicted_class.capitalize()
-            
-            # Tìm category
-            category = Category.objects.filter(name__iexact=category_name).first()
-            
-            if category:
-                # Lấy sản phẩm trong category này
-                products = Product.objects.filter(
-                    category=category,
-                    is_active=True
-                ).select_related('seller', 'category')[:50]  # Giới hạn 50 sản phẩm
-                
-                results = []
-                for p in products:
-                    results.append({
-                        "id": p.id,
-                        "name": p.name,
-                        "price": str(p.price),
-                        "image": (p.image.url if p.image else (p.image_url or None)),
-                        "category": category_name,
-                        "seller": p.seller.username if p.seller else None,
-                    })
+            roi = None
+            if 'roi' in request.data:
+                raw = request.data.get('roi')
+                if isinstance(raw, str):
+                    import json
+                    try:
+                        roi = json.loads(raw)
+                    except Exception:
+                        roi = None
+                elif isinstance(raw, dict):
+                    roi = raw
+
+            if roi is None:
+                x = request.data.get('roi_x')
+                y = request.data.get('roi_y')
+                w = request.data.get('roi_w')
+                h = request.data.get('roi_h')
+                if x is not None and y is not None and w is not None and h is not None:
+                    try:
+                        roi = {'x': float(x), 'y': float(y), 'w': float(w), 'h': float(h)}
+                    except Exception:
+                        roi = None
+
+            # Keep original full image for full-image embedding
+            original_img = img.copy()
+
+            roi_crop = None
+            if roi:
+                iw, ih = original_img.size
+                rx = float(roi.get('x', 0))
+                ry = float(roi.get('y', 0))
+                rw = float(roi.get('w', 0))
+                rh = float(roi.get('h', 0))
+                # detect normalized vs absolute: if values <=1 treat as normalized
+                if 0 <= rx <= 1 and 0 <= ry <= 1 and 0 <= rw <= 1 and 0 <= rh <= 1:
+                    left = int(rx * iw)
+                    upper = int(ry * ih)
+                    right = int((rx + rw) * iw)
+                    lower = int((ry + rh) * ih)
+                else:
+                    left = int(rx)
+                    upper = int(ry)
+                    right = int(rx + rw)
+                    lower = int(ry + rh)
+
+                # clamp to image bounds and ensure minimum ROI size (at least 10x10)
+                left = max(0, min(left, iw - 1))
+                upper = max(0, min(upper, ih - 1))
+                right = max(left + 10, min(right, iw))
+                lower = max(upper + 10, min(lower, ih))
+
+                try:
+                    roi_crop = original_img.crop((left, upper, right, lower))
+                    # Validate ROI size
+                    if roi_crop.size[0] < 10 or roi_crop.size[1] < 10:
+                        roi_crop = None  # Ignore too-small ROI
+                except Exception:
+                    roi_crop = None
+
+        except Exception:
+            roi = None
+
+        try:
+            # Compute full-image embedding
+            full_embedding = get_image_embedding(original_img)
+            if not full_embedding:
+                return Response({"error": "Could not compute full image embedding"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            full_tensor = torch.tensor(full_embedding, dtype=torch.float32).view(-1)
+            if full_tensor.numel() == 0:
+                return Response({"error": "Empty full image embedding"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Compute ROI embedding if provided
+            roi_tensor = None
+            if roi_crop is not None:
+                roi_embedding = get_image_embedding(roi_crop)
+                if roi_embedding:
+                    roi_tensor = torch.tensor(roi_embedding, dtype=torch.float32).view(-1)
+
+            # L2-normalize tensors
+            def l2_normalize(tensor: torch.Tensor):
+                norm = torch.norm(tensor)
+                if norm.numel() == 0 or norm == 0:
+                    return tensor
+                return tensor / norm
+
+            full_tensor = l2_normalize(full_tensor)
+            if roi_tensor is not None:
+                roi_tensor = l2_normalize(roi_tensor)
+
+            # Fuse embeddings: prefer ROI as close-up
+            if roi_tensor is not None:
+                final_tensor = 0.8 * roi_tensor + 0.2 * full_tensor
+                final_tensor = l2_normalize(final_tensor)
             else:
-                # Nếu không tìm thấy category chính xác, tìm gần đúng
-                products = Product.objects.filter(
-                    Q(name__icontains=predicted_class) | 
-                    Q(description__icontains=predicted_class),
-                    is_active=True
-                ).select_related('seller', 'category')[:50]
-                
-                results = []
-                for p in products:
-                    results.append({
-                        "id": p.id,
-                        "name": p.name,
-                        "price": str(p.price),
-                        "image": (p.image.url if p.image else (p.image_url or None)),
-                        "category": p.category.name if p.category else None,
-                        "seller": p.seller.username if p.seller else None,
-                    })
+                final_tensor = full_tensor
+
+            # Retrieve candidates and compute cosine similarity
+            k = int(request.query_params.get('k', 50))
+            candidates = Product.objects.filter(is_active=True).exclude(image_embedding__isnull=True)
+            scored = []
+            for p in candidates.select_related('seller', 'category'):
+                emb = p.image_embedding
+                if not emb:
+                    continue
+                try:
+                    prod_tensor = torch.tensor(emb, dtype=torch.float32).view(-1)
+                    if prod_tensor.numel() != final_tensor.numel():
+                        continue
+                    prod_tensor = l2_normalize(prod_tensor)
+                    score = float(torch.dot(final_tensor, prod_tensor).item())
+                    scored.append((score, p))
+                except Exception:
+                    continue
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            top = scored[:k]
+
+            results = []
+            for score, p in top:
+                results.append({
+                    "id": p.id,
+                    "name": p.name,
+                    "price": str(p.price),
+                    "image": (p.image.url if p.image else (p.image_url or None)),
+                    "category": p.category.name if p.category else None,
+                    "seller": p.seller.username if p.seller else None,
+                    "similarity": score,
+                })
+
+            return Response({
+                "total_results": len(results),
+                "results": results,
+            })
+
+        except Exception as e:
+            return Response({"error": f"Image search failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        finally:
+            try:
+                original_img.close()
+            except Exception:
+                pass
+            try:
+                if roi_crop is not None:
+                    roi_crop.close()
+            except Exception:
+                pass
+
+
+class TextSearchView(APIView):
+    """Search products using CLIP text embedding"""
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return Response({"error": "Query text required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Get text embedding
+            text_embedding = get_text_embedding(query)
+            text_tensor = torch.tensor(text_embedding, dtype=torch.float32).view(-1)
+            
+            # L2 normalize
+            def l2_normalize(tensor: torch.Tensor):
+                norm = torch.norm(tensor)
+                if norm.numel() == 0 or norm == 0:
+                    return tensor
+                return tensor / norm
+            
+            text_tensor = l2_normalize(text_tensor)
+            
+            # Search products
+            k = int(request.query_params.get('k', 50))
+            candidates = Product.objects.filter(is_active=True).exclude(image_embedding__isnull=True)
+            scored = []
+            
+            for p in candidates.select_related('seller', 'category'):
+                emb = p.image_embedding
+                if not emb:
+                    continue
+                try:
+                    prod_tensor = torch.tensor(emb, dtype=torch.float32).view(-1)
+                    if prod_tensor.numel() != text_tensor.numel():
+                        continue
+                    prod_tensor = l2_normalize(prod_tensor)
+                    score = float(torch.dot(text_tensor, prod_tensor).item())
+                    scored.append((score, p))
+                except Exception:
+                    continue
+            
+            scored.sort(key=lambda x: x[0], reverse=True)
+            top = scored[:k]
+            
+            results = []
+            for score, p in top:
+                results.append({
+                    "id": p.id,
+                    "name": p.name,
+                    "price": str(p.price),
+                    "stock": p.stock,
+                    "image": (p.image.url if p.image else (p.image_url or None)),
+                    "category": p.category.name if p.category else None,
+                    "seller": p.seller.username if p.seller else None,
+                    "similarity": score,
+                })
             
             return Response({
-                "predicted_class": predicted_class,
-                "category": category_name,
+                "query": query,
                 "total_results": len(results),
-                "results": results
+                "results": results,
             })
             
         except Exception as e:
-            return Response(
-                {"error": f"Classification failed: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        finally:
-            try:
-                img.close()
-            except Exception:
-                pass
+            return Response({"error": f"Text search failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class WishlistViewSet(mixins.ListModelMixin,

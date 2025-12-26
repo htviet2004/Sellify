@@ -267,6 +267,66 @@
   border-color: #000000;
 }
 
+/* Color Filter */
+.color-filter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.color-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.color-item:hover {
+  transform: translateY(-2px);
+}
+
+.color-item.active .color-swatch {
+  border: 3px solid #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  transform: scale(1.1);
+}
+
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(15, 23, 42, 0.15);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.color-swatch:hover {
+  border-color: rgba(15, 23, 42, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.color-swatch[style*="FFFFFF"] {
+  border-color: #cbd5e1;
+}
+
+.color-item.active .color-swatch[style*="FFFFFF"] {
+  border-color: #6366f1;
+}
+
+.color-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+}
+
+.color-item.active .color-label {
+  color: #6366f1;
+  font-weight: 600;
+}
+
 /* New Styles */
 .filter-btn {
   background: #fff;
